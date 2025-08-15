@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234aa3ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72'/><path d='M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72'/></svg>">
+  <title>Codebase Linker</title> 
+<style>
+  :root{--bg:#0b0f14;--panel:#10161d;--panel-2:#131b23;--text:#e6edf3;--muted:#9fb1c1;--accent:#4aa3ff;--accent-2:#51e3a6;--warn:#ffcc66;--danger:#ff6b6b;--ok:#4cd964;--border:#25313d;--chip:#1b2430;--badge:#17202a;--shadow:0 6px 24px rgba(0,0,0,.35)}
+  [data-theme="light"]{--bg:#f6f8fb;--panel:#fff;--panel-2:#f2f6fb;--text:#0b1220;--muted:#51606e;--accent:#1b6cff;--accent-2:#0fb573;--warn:#a86e00;--danger:#c91919;--ok:#0d8c48;--border:#d6dee6;--chip:#ecf2f8;--badge:#e7eef6;--shadow:0 8px 24px rgba(0,0,0,.08)}
+  *{box-sizing:border-box}html,body{height:100%}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Helvetica,Arial}
+  
+  /* Redesigned Header */
+  header{position:sticky;top:0;z-index:10;display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:center;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--border);box-shadow:var(--shadow)}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.2px;color:var(--text)}
+  .brand svg{color:var(--accent)}
+  .brand-text{display:flex;flex-direction:column;align-items:center;text-align:center}
+  .brand-text .author{font-size:11px;font-weight:400;color:var(--muted);margin-top:2px}
+  .header-center{display:flex;justify-content:center}
+  .search-wrapper{display:flex;align-items:center;width:100%;max-width:400px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding-left:12px}
+  .search-wrapper svg{color:var(--muted)}
+  .search-wrapper input{flex-grow:1;background:transparent;border:0;outline:none;color:var(--text);padding:8px}
+  .btn{appearance:none;border:0;background:transparent;color:var(--text);padding:8px 10px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background-color .2s}
+  .btn:hover{background:var(--panel-2)}
+  .icon-btn{padding:8px;position:relative}
+  .icon-btn .tooltip{position:absolute;top:120%;left:50%;transform:translateX(-50%);background:var(--chip);color:var(--text);padding:4px 8px;border-radius:6px;font-size:12px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .2s,top .2s;z-index:11}
+  .icon-btn:hover .tooltip{opacity:1;top:110%}
+  #showOnlyMatches{border-left:1px solid var(--border);margin-left:8px;border-radius:0 8px 8px 0}
+  #showOnlyMatches.active{background:var(--accent);color:var(--bg)}
+  .header-right{display:flex;align-items:center;gap:8px}
+  .dropdown{position:relative}
+  .dropdown-menu{position:absolute;top:110%;right:0;background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);padding:6px;min-width:180px;z-index:12;opacity:0;pointer-events:none;transform:translateY(-10px);transition:opacity .2s,transform .2s}
+  .dropdown.open .dropdown-menu{opacity:1;pointer-events:auto;transform:translateY(0)}
+  .dropdown-menu label{width:100%;text-align:left;justify-content:flex-start}
+  .dropdown-menu label:hover{background:var(--panel-2)}
+  .dropdown-menu label svg { margin-right: 4px; }
+
+  main{display:grid;grid-template-columns:360px 4px 1fr;height:calc(100vh - 64px)}aside{border-right:1px solid var(--border);overflow:auto;background:var(--panel)}section{overflow:auto;background:var(--panel-2)}
+  #resizer { background: var(--panel); cursor: col-resize; border-left: 1px solid var(--border); border-right: 1px solid var(--border); transition: background-color .2s; }
+  #resizer:hover { background: var(--accent); }
+  
+  /* Redesigned Pane Title */
+  .pane-title{padding:10px 12px;position:sticky;top:0;background:var(--panel);border-bottom:1px solid var(--border);z-index:5;display:flex;justify-content:space-between;align-items:center}
+  .pane-title-left{display:flex;align-items:center;gap:8px}
+  .pane-controls{display:flex;align-items:center;border:1px solid var(--border);border-radius:8px}
+  .pane-controls .btn{padding:4px 8px;border-radius:0}
+  .pane-controls .btn:first-child{border-top-left-radius:7px;border-bottom-left-radius:7px}
+  .pane-controls .btn:last-child{border-top-right-radius:7px;border-bottom-right-radius:7px;border-left:1px solid var(--border)}
+
+  .tree{list-style:none;margin:0;padding:8px 10px 60px}.tree li{position:relative}.tree .node{display:flex;align-items:center;gap:4px;padding:3px 4px;border-radius:8px;cursor:pointer;user-select:none;white-space:nowrap}
+  .tree .node:hover{background:var(--chip)}.tree .node.active{background:rgba(80,160,255,.15);box-shadow:inset 0 0 0 1px var(--accent)}
+  .tree .toggle{width:8px;height:8px;border:1px solid var(--border);border-radius:2px;display:inline-flex;align-items:center;justify-content:center;font-size:10px}.tree .toggle::after{content:"+"}
+  .tree li.open>.node .toggle::after{content:"–"}.tree ul{list-style:none;margin:2px 0 2px 6px;padding-left:6px;border-left:1px dashed var(--border);display:none}.tree li.open>ul{display:block}
+  .muted{color:var(--muted)}
+  .tabpanes{padding:12px;display:grid;gap:12px}.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow)}
+  .card .card-h{padding:10px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .card .card-b{padding:12px}
+  .pill{display:inline-flex;gap:6px;align-items:center;padding:2px 8px;border-radius:999px;background:var(--chip);border:1px solid var(--border);font-size:12px}
+  .pill .dot{width:6px;height:6px;border-radius:50%}.pill.must .dot{background:var(--danger)}.pill.rec .dot{background:var(--warn)}.pill.opt .dot{background:var(--accent-2)}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
+  .hint{color:var(--muted)}.empty{padding:16px;color:var(--muted)}
+  
+  .conn-grid { display: grid; gap: 8px; }
+  .conn-group h4 { margin: 0 0 4px; font-size: 13px; color: var(--muted); border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+  .conn-item { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel-2); }
+  .conn-item:hover { background-color: var(--chip); cursor: pointer; }
+  .conn-item .path { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .conn-item .kind { font-size: 11px; padding: 2px 6px; border-radius: 6px; background: var(--badge); }
+
+  .filters-container { display: grid; gap: 16px; margin-top: 12px; border-top: 1px solid var(--border); padding-top: 12px; }
+  .filter-group h4 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .filter-options { display: flex; flex-wrap: wrap; gap: 8px; }
+  .filter-options label {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border-radius: 999px;
+      background: var(--panel-2); border: 1px solid var(--border);
+      cursor: pointer; user-select: none; font-size: 12px;
+      transition: all .2s;
+  }
+  .filter-options label input { display: none; }
+  .filter-options label:has(input:checked) {
+      background: var(--accent); color: var(--bg); border-color: var(--accent);
+  }
+  .filter-options label.must:has(input:checked) { background: var(--danger); border-color: var(--danger); }
+  .filter-options label.rec:has(input:checked) { background: var(--warn); border-color: var(--warn); }
+  .filter-options label.opt:has(input:checked) { background: var(--accent-2); border-color: var(--accent-2); }
+
+  .loading-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(11, 15, 20, 0.8); display: flex; flex-direction: column;
+    justify-content: center; align-items: center; z-index: 9999;
+    backdrop-filter: blur(4px); transition: opacity .2s;
+  }
+  .loading-overlay.hidden { opacity: 0; pointer-events: none; }
+  .loading-overlay .spinner {
+    width: 48px; height: 48px; border: 3px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  .loading-overlay .message { margin-top: 16px; font-weight: 500; color: var(--muted); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+  <div id="loadingOverlay" class="loading-overlay hidden">
+    <div class="spinner"></div>
+    <div class="message">Processing project...</div>
+  </div>
+
+  <header>
+    <div class="brand">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72"/></svg>
+        <div class="brand-text">
+            <b>Codebase Linker</b>
+            <div class="author">By Ahmed Ayman</div>
+        </div>
+    </div>
+    <div class="header-center">
+      <div class="search-wrapper">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="search" placeholder="Search files…" />
+        <button id="showOnlyMatches" class="btn icon-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            <span class="tooltip">Filter tree to matches</span>
+        </button>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="dropdown" id="importDropdown">
+        <button class="btn" id="importBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Import
+        </button>
+        <div class="dropdown-menu">
+          <label class="btn" title="Import a .zip of your project">
+            <input id="zipInput" type="file" accept=".zip" hidden>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Import ZIP
+          </label>
+          <label class="btn" title="Import a project folder">
+            <input id="dirInput" type="file" webkitdirectory directory multiple hidden>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            Import Folder
+          </label>
+        </div>
+      </div>
+      <button class="btn icon-btn" id="toggleTheme">
+        <svg id="themeIconLight" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        <svg id="themeIconDark" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        <span class="tooltip">Toggle Theme</span>
+      </button>
+      <button class="btn icon-btn" id="clearBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        <span class="tooltip">Reset App</span>
+      </button>
+    </div>
+  </header>
+
+  <main id="mainPanel">
+    <aside>
+      <div class="pane-title">
+        <div class="pane-title-left">
+          <div>Project Files</div>
+          <div class="hint" id="counts"></div>
+        </div>
+        <div class="pane-controls">
+            <button class="btn" id="expandAll" title="Expand all folders">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>
+            <button class="btn" id="collapseAll" title="Collapse all folders">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>
+        </div>
+      </div>
+      <ul id="tree" class="tree"><li class="empty">Load a project to see its file tree.</li></ul>
+    </aside>
+    <div id="resizer"></div>
+    <section>
+      <div class="tabpanes">
+        <div class="card" id="selCard">
+          <div class="card-h">
+            <div id="selTitle">No file selected</div>
+            <div class="row">
+                <label class="btn ghost"><input type="checkbox" id="samePkg" hidden> Same package only</label>
+            </div>
+          </div>
+          <div class="card-b">
+            <div class="filters-container">
+              <div class="filter-group">
+                  <h4>Importance</h4>
+                  <div class="filter-options" id="tierFilters">
+                      <label class="must"><input type="checkbox" value="must" checked> Must</label>
+                      <label class="rec"><input type="checkbox" value="rec" checked> Recommended</label>
+                      <label class="opt"><input type="checkbox" value="opt" checked> Optional</label>
+                  </div>
+              </div>
+              <div class="filter-group">
+                  <h4>Connection Type</h4>
+                  <div class="filter-options" id="kindFilters">
+                      <div class="hint">Select a file to see types</div>
+                  </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div>File Connections</div><div class="hint" id="allCounts"></div></div>
+          <div class="card-b" id="allList"><div class="empty">Select a file to see its connections.</div></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+<script type="text/plain" id="workerScript">
+  // --- CONFIGURATION ---
+  const BINDING_PREFIXES_TO_STRIP = ['Activity', 'Fragment', 'Item', 'Row', 'Dialog', 'View'];
+  const CONNECTION_WEIGHTS = {
+    // Architectural
+    MODULE: 1.0,
+    LOGIC: 1.0,
+    LAYOUT_INFLATE: 1.0,
+    LAYOUT_INCLUDE: 0.9,
+    NAVIGATION: 0.9,
+    MANIFEST_COMP: 1.0,
+    // Strong Usage
+    MENU_INFLATE: 0.8,
+    // Weaker Usage
+    ID_USAGE: 0.3,
+    // Passive Resource Usage
+    RESOURCE: 0.2,
+    THEME_STYLE: 0.2,
+    PASSIVE_MENU: 0.2, // e.g. referencing a menu ID but not inflating it
+  };
+
+  // --- STATE ---
+  let store = { files: new Map() };
+  let maps = {};
+
+  // --- HELPERS ---
+  const norm = p => (p || '').replace(/\\/g, '/').replace(/^\/+/, '');
+  const camelToSnake = s => s.replace(/[A-Z]/g, letter => '_' + letter.toLowerCase()).replace(/^_/, '');
+  const addToMapSet = (map, key, val) => {
+    if(!map.has(key)) map.set(key, new Set());
+    map.get(key).add(val);
+  };
+  const readIdent = (str, i, allowDots = false) => {
+    let o = '';
+    const validChars = (c) => (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c === '_' || (allowDots && (c === '.' || c === '-'));
+    while (i < str.length) {
+        const c = str[i];
+        if (!validChars(c)) break;
+        o += c;
+        i++;
+    }
+    return o;
+  };
+
+  // --- CORE LOGIC ---
+  function resInfo(path){
+    const p = norm(path), parts = p.split('/'), resIdx = parts.lastIndexOf('res');
+    if(resIdx === -1) return null;
+    const folder = parts[resIdx+1] || '';
+    const file = parts[parts.length-1] || '';
+    const name = file.slice(0, file.lastIndexOf('.') > 0 ? file.lastIndexOf('.') : undefined);
+    const bucketMap = {
+        layout: 'layout', menu: 'menu', navigation: 'navigation', xml: 'xml',
+        values: 'values', drawable: 'drawable', mipmap: 'mipmap', font: 'font',
+        anim: 'anim', animator: 'animator', transition: 'transition', raw: 'raw',
+        color: 'values', dimen: 'values', string: 'values', style: 'values', theme: 'values'
+    };
+    for(const key in bucketMap){
+        if(folder.startsWith(key)) return { bucket: bucketMap[key], name };
+    }
+    return null;
+  }
+
+  function buildCoreMaps() {
+    maps = {
+      layouts: new Map(), ids: new Map(), menus: new Map(), nav: new Map(),
+      prefs: new Map(), includes: new Map(), navIds: new Map(),
+      valuesByType: new Map(), valuesByPath: new Map(), layoutValueNeeds: new Map(),
+      manifests: new Map(), classToPath: new Map(), pathToFqcn: new Map(),
+      gradleModules: new Map(), _moduleOfPathCache: new Map(),
+      moduleOfPath(path) {
+          const dir = path.substring(0, path.lastIndexOf('/'));
+          if (this._moduleOfPathCache.has(dir)) return this._moduleOfPathCache.get(dir);
+          let d = dir;
+          while (d) {
+              if (this.gradleModules.has(d)) {
+                  this._moduleOfPathCache.set(dir, d); return d;
+              }
+              const parent = d.substring(0, d.lastIndexOf('/'));
+              if (parent === d) break;
+              d = parent;
+          }
+          this._moduleOfPathCache.set(dir, ''); return '';
+      }
+    };
+    for (const path of store.files.keys()) {
+        if (path.endsWith('.gradle') || path.endsWith('.gradle.kts')) {
+            maps.gradleModules.set(path.substring(0, path.lastIndexOf('/')), path);
+        }
+    }
+    for (const [path, meta] of store.files.entries()) {
+        const text = meta.text || '';
+        if (path.endsWith('AndroidManifest.xml')) {
+            const manifestData = {
+                package: text.match(/package="([^"]+)"/)?.[1] || '',
+                components: new Map(),
+                resources: new Set([...text.matchAll(/@(\w+\/[A-Za-z0-9_.-]+)/g)].map(r => r[1]))
+            };
+            for(const c of [...text.matchAll(/<(?:activity|service|receiver|provider)[^>]+android:name="([^"]+)"/g)]){
+                let fqcn = c[1];
+                if(fqcn.startsWith('.')) fqcn = manifestData.package + fqcn;
+                manifestData.components.set(fqcn, path);
+            }
+            maps.manifests.set(path, manifestData);
+        }
+        if (/\.(kt|java)$/i.test(path)) {
+            const pkg = text.match(/^package\s+([a-zA-Z0-9._]+)/m)?.[1] || '';
+            const cls = (text.match(/^(?![^{]*?\b(?:private|protected)\b)[^{]*?\b(?:class|interface|object|enum)\s+([a-zA-Z0-9_]+)/m) || [])[1] || '';
+            if(pkg && cls) {
+                const fqcn = pkg + '.' + cls;
+                maps.pathToFqcn.set(path, fqcn);
+                maps.classToPath.set(fqcn, path);
+            }
+        }
+        const info = resInfo(path);
+        if (!info || !text) continue;
+        
+        const bucketMap = {
+            layout: maps.layouts, menu: maps.menus, navigation: maps.nav, xml: maps.prefs,
+            drawable: maps.valuesByType, mipmap: maps.valuesByType, font: maps.valuesByType,
+            anim: maps.valuesByType, animator: maps.valuesByType, transition: maps.valuesByType, raw: maps.valuesByType
+        };
+        if(bucketMap[info.bucket]){
+            const map = bucketMap[info.bucket];
+            const key = ['drawable', 'mipmap', 'font', 'anim', 'animator', 'transition', 'raw'].includes(info.bucket) ? info.bucket : info.name;
+            const value = ['drawable', 'mipmap', 'font', 'anim', 'animator', 'transition', 'raw'].includes(info.bucket) ? info.name : path;
+            if(map === maps.valuesByType){
+                if(!map.has(key)) map.set(key, new Map());
+                addToMapSet(map.get(key), value, path);
+            } else {
+                addToMapSet(map, key, value);
+            }
+        }
+
+        if (info.bucket === 'layout') {
+            [...text.matchAll(/@\+?id\/([A-Za-z0-9_]+)/g)].forEach(m => addToMapSet(maps.ids, m[1], path));
+            [...text.matchAll(/layout="@layout\/([A-Za-z0-9_]+)"/g)].forEach(m => addToMapSet(maps.includes, info.name, m[1]));
+        } else if (info.bucket === 'navigation') {
+            [...text.matchAll(/android:id="@+id\/([^"]+)"/g)].forEach(m => addToMapSet(maps.navIds, m[1], path));
+        } else if (info.bucket === 'values') {
+            for(const vr of [...text.matchAll(/<(\w+(?:-\w+)?)\s+name="([^"]+)"/g)]) {
+                const type = vr[1].replace(/-/g, '_'), name = vr[2];
+                if(!maps.valuesByType.has(type)) maps.valuesByType.set(type, new Map());
+                addToMapSet(maps.valuesByType.get(type), name, path);
+            }
+        }
+    }
+  }
+
+  function buildGraph(samePkg) {
+    const graph = { edges: new Map(), nodes: new Set(store.files.keys()) };
+    const ensureEdge = (from, to, kind) => {
+        if(!from || !to || from === to || !graph.nodes.has(from) || !graph.nodes.has(to)) return;
+        if(!graph.edges.has(from)) graph.edges.set(from, new Map());
+        const existing = graph.edges.get(from).get(to);
+        const weight = CONNECTION_WEIGHTS[kind] || 0.1;
+        if(!existing || weight > existing.weight) {
+            graph.edges.get(from).set(to, { kind, weight });
+        }
+    };
+
+    for (const [path, meta] of store.files.entries()) {
+        const text = meta.text || '';
+        const isCode = /\.(kt|java)$/i.test(path);
+        const isGradle = path.endsWith('.gradle') || path.endsWith('.gradle.kts');
+        const isXmlLayout = resInfo(path)?.bucket === 'layout';
+
+        if (isGradle) {
+            for(const dep of [...text.matchAll(/(?:implementation|api)\s*\(?project\s*\(['"]:(.+)['"]\)\)?/g)]) {
+                const depName = dep[1];
+                for(const [modRoot, gradPath] of maps.gradleModules.entries()) {
+                    if(modRoot.endsWith('/' + depName) || modRoot === depName) ensureEdge(path, gradPath, 'MODULE');
+                }
+            }
+        }
+
+        if (isCode) {
+            const fqcn = maps.pathToFqcn.get(path);
+            if(fqcn) for(const [manifestPath, manifestData] of maps.manifests.entries()){
+                if(manifestData.components.has(fqcn)) ensureEdge(path, manifestPath, 'MANIFEST_COMP');
+            }
+            for(const name of new Set([...text.matchAll(/(?:R\.layout\.|setContentView\s*\(\s*R\.layout\.)(\w+)/g)].map(m=>m[1]))) {
+                if(maps.layouts.has(name)) for(const to of maps.layouts.get(name)) ensureEdge(path, to, 'LAYOUT_INFLATE');
+            }
+            for(const b of [...text.matchAll(/([A-Z][A-Za-z0-9]+Binding)\b/g)].map(m=>m[1])) {
+                const layoutNames = (b.endsWith('Binding')) ? [camelToSnake(b.slice(0, -'Binding'.length))] : [];
+                for(const name of layoutNames) if(maps.layouts.has(name)) for(const to of maps.layouts.get(name)) ensureEdge(path, to, 'LAYOUT_INFLATE');
+            }
+            for(const hit of [...text.matchAll(/R\.menu\.(\w+)/g)]) {
+                const context = text.substring(Math.max(0, hit.index - 150), hit.index + 30);
+                const isInflated = /(?:menuInflater|getMenuInflater\(\)|toolbar)\.inflate\s*\(|onCreateOptionsMenu/.test(context);
+                if(maps.menus.has(hit[1])) for(const to of maps.menus.get(hit[1])) ensureEdge(path, to, isInflated ? 'MENU_INFLATE' : 'PASSIVE_MENU');
+            }
+            for(const name of [...text.matchAll(/(?:findNavController\(\)|navController)\.navigate\s*\(\s*R\.id\.(\w+)/g)].map(m=>m[1])) {
+                if(maps.navIds.has(name)) for(const to of maps.navIds.get(name)) ensureEdge(path, to, 'NAVIGATION');
+            }
+            for(const name of [...text.matchAll(/R\.id\.(\w+)/g)].map(m=>m[1])) {
+                if(maps.ids.has(name)) for(const to of maps.ids.get(name)) ensureEdge(path, to, 'ID_USAGE');
+            }
+            for(const hit of [...text.matchAll(/R\.(\w+)\.(\w+)/g)]) {
+                const type = hit[1], name = hit[2], map = maps.valuesByType.get(type);
+                if(map && map.has(name)) for(const to of map.get(name)) ensureEdge(path, to, 'RESOURCE');
+            }
+            const classRefs = [...new Set([...text.matchAll(/\bimport\s+([a-zA-Z0-9._]+)\b/g), ...text.matchAll(/\bnew\s+([A-Z][A-Za-z0-9_]+)/g)].map(m=>m[1]))];
+            for(const cls of classRefs) {
+                const targetPath = maps.classToPath.get(cls) || maps.classToPath.get(cls.split('.').pop());
+                if(targetPath && targetPath !== path) {
+                   if(!samePkg || (maps.pathToFqcn.get(path)?.split('.').slice(0,-1).join('.') === maps.pathToFqcn.get(targetPath)?.split('.').slice(0,-1).join('.'))) {
+                       ensureEdge(path, targetPath, 'LOGIC');
+                   }
+                }
+            }
+        }
+        
+        if (isXmlLayout) {
+             for(const name of [...text.matchAll(/layout="@layout\/([^"]+)"/g)].map(m=>m[1])) {
+                if(maps.layouts.has(name)) for(const to of maps.layouts.get(name)) ensureEdge(path, to, 'LAYOUT_INCLUDE');
+            }
+            for(const ref of [...text.matchAll(/@((style|theme)\/[A-Za-z0-9_.-]+)/g)].map(m=>m[1])) {
+                const [type, name] = ref.split('/');
+                if(maps.valuesByType.get(type)?.has(name)) for(const to of maps.valuesByType.get(type).get(name)) ensureEdge(path, to, 'THEME_STYLE');
+            }
+        }
+    }
+    return graph;
+  }
+
+  function calculatePageRank(graph, damping = 0.85, iterations = 20) {
+    const scores = new Map();
+    const outgoing = new Map();
+    for (const node of graph.nodes) {
+        scores.set(node, 1 / graph.nodes.size);
+        outgoing.set(node, 0);
+    }
+
+    for (const [from, edges] of graph.edges.entries()) {
+        let totalWeight = 0;
+        for (const { weight } of edges.values()) totalWeight += weight;
+        outgoing.set(from, totalWeight);
+    }
+
+    for (let i = 0; i < iterations; i++) {
+        const newScores = new Map();
+        for (const node of graph.nodes) {
+            let rank = (1 - damping) / graph.nodes.size;
+            for (const [from, edges] of graph.edges.entries()) {
+                if (edges.has(node)) {
+                    const edge = edges.get(node);
+                    const totalOutgoingWeight = outgoing.get(from);
+                    if (totalOutgoingWeight > 0) {
+                        rank += damping * (scores.get(from) * (edge.weight / totalOutgoingWeight));
+                    }
+                }
+            }
+            newScores.set(node, rank);
+        }
+        for (const [node, score] of newScores.entries()) scores.set(node, score);
+    }
+    return scores;
+  }
+
+  self.onmessage = (e) => {
+    const { fileData, samePkg } = e.data;
+    store.files = new Map(fileData.map(f => [f.path, f]));
+    buildCoreMaps();
+    const graph = buildGraph(samePkg);
+    const fileScores = calculatePageRank(graph);
+    
+    self.postMessage({
+      graph: { edges: Array.from(graph.edges.entries()).map(([k,v]) => [k, Array.from(v.entries())]) },
+      maps: { /* Maps are large, send only if needed */ },
+      fileScores: Array.from(fileScores.entries())
+    });
+  };
+</script>
+
+<!-- Main Application Logic -->
+<script type="module">
+  const $ = s => document.querySelector(s);
+  const $$ = s => document.querySelectorAll(s);
+
+  // --- STATE ---
+  let selectedPath = null;
+  const store = { files: new Map(), tree: null, fileScores: new Map() };
+  const filter = { 
+    q: '', 
+    onlyMatches: false, 
+    matches: new Set(), 
+    keep: new Set(), 
+    samePkg: false,
+    tiers: new Set(['must', 'rec', 'opt']),
+    kinds: new Set()
+  };
+  let graph = { edges: new Map() };
+
+  // --- HELPERS ---
+  const TEXT_EXT = /\.(kt|java|kts|gradle|properties|pro|md|txt|xml|json)$/i;
+  const IGNORE = [ /^\.git\//, /^\.idea\//, /^\.gradle\//, /^build\//, /^out\//, /^\.github\// ];
+  const norm = p => (p || '').replace(/\\/g, '/').replace(/^\/+/, '');
+  const isIgnored = p => IGNORE.some(rx => rx.test(p));
+  const isText = name => TEXT_EXT.test(name);
+  const escapeHtml = s => String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  const debounce = (func, delay) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(()=>func(...a), delay); }; };
+
+  // --- WORKER ---
+  const workerScript = document.getElementById('workerScript').textContent;
+  const workerBlob = new Blob([workerScript], { type: 'application/javascript' });
+  const workerUrl = URL.createObjectURL(workerBlob);
+  let worker = new Worker(workerUrl);
+
+  // --- UI RENDERING ---
+  function renderTree() {
+    const host = $('#tree'); host.innerHTML = '';
+    if (!store.tree) { host.innerHTML = '<li class="empty">No files loaded.</li>'; return; }
+    const frag = document.createDocumentFragment();
+    const shouldKeep = (node) => !filter.onlyMatches || (node.folder ? filter.keep.has(node.path || '') : filter.matches.has(node.path));
+    const buildNode = (node) => {
+      const children = node.children ? Array.from(node.children.values()).sort((a,b)=>(!!a.folder !== !!b.folder) ? (a.folder?-1:1) : a.name.localeCompare(b.name)) : [];
+      const ul = document.createElement('ul');
+      for (const child of children) {
+        if (!shouldKeep(child)) continue;
+        const li = document.createElement('li'), row = document.createElement('div'); row.className = 'node';
+        const toggle = document.createElement('span'); toggle.className = 'toggle'; if (!child.folder) toggle.style.visibility = 'hidden';
+        const label = document.createElement('span'); label.className = 'label'; label.textContent = child.name; label.title = child.folder ? child.path : (child.path.split('/').slice(0,-1).join('/') || '/');
+        row.append(toggle, label); li.appendChild(row);
+        if (child.folder) {
+          if (child.open) li.classList.add('open');
+          row.addEventListener('click', (ev) => { ev.stopPropagation(); child.open = !child.open; li.classList.toggle('open'); });
+          li.appendChild(buildNode(child));
+        } else {
+          row.addEventListener('click', (ev) => { ev.stopPropagation(); selectFile(child.path); });
+        }
+        ul.appendChild(li);
+      }
+      return node === store.tree ? ul.childNodes : ul;
+    };
+    frag.append(...buildNode(store.tree)); host.appendChild(frag);
+  }
+
+  function getTierFromScore(score, sortedScores) {
+      const index = sortedScores.findIndex(s => s >= score);
+      const percentile = index / sortedScores.length;
+      if (percentile > 0.85) return 'must';
+      if (percentile > 0.4) return 'rec';
+      return 'opt';
+  }
+
+  function renderConnections(selPath){
+    const listHost = $('#allList');
+    if(!selPath || !store.fileScores.size){ 
+        listHost.innerHTML = '<div class="empty">Select a file.</div>'; 
+        $('#allCounts').textContent=''; 
+        return; 
+    }
+
+    const dependsOn = [], usedBy = [];
+    const outgoing = graph.edges.get(selPath);
+    if(outgoing) for(const [to, meta] of outgoing.entries()) dependsOn.push({path:to, ...meta});
+    
+    for(const [from, edges] of graph.edges.entries()) {
+        if(edges.has(selPath)) usedBy.push({path:from, ...edges.get(selPath)});
+    }
+
+    const allScores = [...store.fileScores.values()].sort((a,b)=>a-b);
+    
+    // Update dynamic filters
+    const allKinds = new Set([...dependsOn.map(c => c.kind), ...usedBy.map(c => c.kind)]);
+    const kindFiltersHost = $('#kindFilters');
+    kindFiltersHost.innerHTML = '';
+    if (allKinds.size === 0) {
+        kindFiltersHost.innerHTML = `<div class="hint">No connections found</div>`;
+    } else {
+        const allKindsSelected = filter.kinds.size === 0;
+        allKinds.forEach(kind => {
+            const label = document.createElement('label');
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.value = kind;
+            if (allKindsSelected || filter.kinds.has(kind)) {
+                input.checked = true;
+            }
+            label.append(input, ` ${kind.replace(/_/g, ' ').toLowerCase()}`);
+            kindFiltersHost.appendChild(label);
+        });
+    }
+
+
+    // Apply filters
+    const filteredDependsOn = dependsOn.filter(item => {
+        const score = store.fileScores.get(item.path) || 0;
+        const tier = getTierFromScore(score, allScores);
+        return filter.tiers.has(tier) && (filter.kinds.size === 0 || filter.kinds.has(item.kind));
+    });
+    const filteredUsedBy = usedBy.filter(item => {
+        const score = store.fileScores.get(item.path) || 0;
+        const tier = getTierFromScore(score, allScores);
+        return filter.tiers.has(tier) && (filter.kinds.size === 0 || filter.kinds.has(item.kind));
+    });
+
+
+    // Render lists
+    const grid = document.createElement('div');
+    grid.className = 'conn-grid';
+
+    const addGroup = (title, arr)=>{
+      const group = document.createElement('div');
+      group.className = 'conn-group';
+      const header = document.createElement('h4');
+      header.textContent = `${title} (${arr.length})`;
+      group.appendChild(header);
+
+      if(arr.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'empty';
+        empty.textContent = 'None';
+        group.appendChild(empty);
+      } else {
+        arr.sort((a,b) => b.weight - a.weight);
+        for(const it of arr) {
+            const row = document.createElement('div');
+            row.className = 'conn-item';
+            row.title = it.path;
+            
+            const score = store.fileScores.get(it.path) || 0;
+            const tier = getTierFromScore(score, allScores);
+            
+            const pill = `<span class="pill ${tier}"><span class="dot"></span> ${tier}</span>`;
+            const kind = `<span class="kind">${it.kind.replace(/_/g, ' ').toLowerCase()}</span>`;
+            const path = `<span class="mono path">${escapeHtml(it.path.split('/').pop())}</span>`;
+
+            row.innerHTML = `${path}${kind}${pill}`;
+            row.addEventListener('click', () => selectFile(it.path));
+            group.appendChild(row);
+        }
+      }
+      grid.appendChild(group);
+    };
+    
+    addGroup('Depends On', filteredDependsOn); 
+    addGroup('Used By', filteredUsedBy);
+    
+    listHost.innerHTML = ''; 
+    listHost.appendChild(grid);
+    $('#allCounts').textContent = `${filteredDependsOn.length} outgoing • ${filteredUsedBy.length} incoming`;
+  }
+
+  // --- APP LOGIC ---
+  function selectFile(path){
+    selectedPath = path;
+    $('#selTitle').innerHTML = `<strong>${escapeHtml(path.split('/').pop())}</strong> <span class="muted mono">&mdash; ${escapeHtml(path)}</span>`;
+    $$('#tree .node.active').forEach(n=>n.classList.remove('active'));
+    // This is an inefficient way to find the node, but ok for now
+    const node = [...$$('#tree .label')].find(n=>n.textContent === path.split('/').pop());
+    if(node) node.closest('.node').classList.add('active');
+    
+    // Reset kind filters when selecting a new file
+    filter.kinds.clear();
+    renderConnections(path);
+  }
+
+  function buildTree(){
+    const root = { name:'/', path:'', folder:true, open:true, children:new Map() };
+    for(const p of store.files.keys()){
+      const parts = p.split('/'); let cur = root, acc = '';
+      for(let i=0;i<parts.length;i++){
+        const seg = parts[i]; acc += (i?'/':'') + seg;
+        if(i < parts.length-1){
+          if(!cur.children.has(seg)) cur.children.set(seg, { name: seg, path: acc, folder:true, open:false, children:new Map() });
+          cur = cur.children.get(seg);
+        } else cur.children.set(seg, { name: seg, path: acc, folder:false });
+      }
+    }
+    store.tree = root;
+  }
+  
+  const applyFilterAndRender = () => {
+    filter.q = ($('#search')?.value || '').trim().toLowerCase();
+    filter.onlyMatches = !!$('#showOnlyMatches')?.classList.contains('active');
+    
+    filter.matches.clear(); 
+    filter.keep.clear();
+    
+    if(filter.q) {
+      for(const p of store.files.keys()){
+          if(p.toLowerCase().includes(filter.q)){
+            filter.matches.add(p);
+            const parts = p.split('/'); let acc='';
+            for(let i=0; i < parts.length - 1; i++){ 
+              acc += (i ? '/' : '') + parts[i]; 
+              filter.keep.add(acc); 
+            }
+          }
+        }
+    }
+    filter.keep.add('');
+
+    if(store.tree) {
+      const stack=[store.tree];
+      while(stack.length){ 
+        const n=stack.pop(); 
+        if(n.children){ 
+          if(filter.onlyMatches && filter.keep.has(n.path||'')) n.open = true; 
+          for(const c of n.children.values()) stack.push(c); 
+        }
+      }
+    }
+    renderTree();
+  };
+  const debouncedApplyFilter = debounce(applyFilterAndRender, 300);
+
+  function handleSamePkgChange() {
+    filter.samePkg = !!$('#samePkg')?.checked;
+    if (store.files.size > 0) processFiles();
+  }
+
+  function processFiles() {
+      if (store.files.size === 0) return;
+      $('#loadingOverlay').classList.remove('hidden');
+      const fileData = Array.from(store.files.values());
+      worker.postMessage({ fileData, samePkg: filter.samePkg });
+  }
+
+  async function loadFromFileList(files, isFromZip=false){
+    $('#loadingOverlay').classList.remove('hidden');
+    store.files.clear();
+    const fileDataPromises = files.map(async f=>{
+      const full = norm(f.webkitRelativePath || f._virtualPath || f.name);
+      if(isIgnored(full)) return null;
+      const text = (isFromZip ? f._virtualText : (isText(f.name) ? await f.text().catch(()=>'') : ''));
+      return { path: full, text };
+    });
+    const fileData = (await Promise.all(fileDataPromises)).filter(Boolean);
+    store.files = new Map(fileData.map(f => [f.path, f]));
+    
+    worker.onmessage = (e) => {
+        const { graph: transferableGraph, fileScores: scoresArray } = e.data;
+        graph.edges = new Map(transferableGraph.edges.map(([k,v]) => [k, new Map(v)]));
+        store.fileScores = new Map(scoresArray);
+        
+        buildTree();
+        applyFilterAndRender();
+        $('#counts').textContent = `${store.files.size} files indexed`;
+        $('#allList').innerHTML = '<div class="empty">Project loaded. Select a file.</div>';
+        $('#loadingOverlay').classList.add('hidden');
+    };
+
+    processFiles();
+  }
+
+  function resetApp(){
+    selectedPath = null;
+    store.files.clear(); store.tree = null; store.fileScores.clear();
+    if($('#search')) $('#search').value = '';
+    if($('#showOnlyMatches')) $('#showOnlyMatches').classList.remove('active');
+    if($('#samePkg')) $('#samePkg').checked = false;
+    Object.assign(filter, { 
+        q: '', onlyMatches: false, samePkg: false, 
+        matches: new Set(), keep: new Set(),
+        tiers: new Set(['must', 'rec', 'opt']),
+        kinds: new Set()
+    });
+    $$('#tierFilters input').forEach(el => el.checked = true);
+    $('#counts').textContent = '';
+    $('#tree').innerHTML = '<li class="empty">No files loaded yet.</li>';
+    $('#selTitle').textContent = 'No file selected';
+    $('#allCounts').textContent = '';
+    $('#allList').innerHTML = '<div class="empty">Load a project to see files.</div>';
+    $('#kindFilters').innerHTML = '<div class="hint">Select a file to see types</div>';
+    $('#loadingOverlay').classList.add('hidden');
+  }
+  
+  function updateThemeIcons(theme) {
+      $('#themeIconLight').style.display = theme === 'dark' ? 'block' : 'none';
+      $('#themeIconDark').style.display = theme === 'light' ? 'block' : 'none';
+  }
+
+  // --- INITIALIZATION ---
+  const resizer = $('#resizer');
+  resizer.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    const handleResize = (e) => {
+        let newWidth = e.clientX;
+        if (newWidth < 200) newWidth = 200;
+        $('#mainPanel').style.gridTemplateColumns = `${newWidth}px 4px 1fr`;
+    };
+    const stopResize = () => {
+        window.removeEventListener('mousemove', handleResize);
+        window.removeEventListener('mouseup', stopResize);
+    };
+    window.addEventListener('mousemove', handleResize);
+    window.addEventListener('mouseup', stopResize);
+  });
+  
+  $('#dirInput')?.addEventListener('change', e => e.target.files?.length && loadFromFileList(Array.from(e.target.files)));
+  $('#zipInput')?.addEventListener('change', async e => {
+    const file = e.target.files?.[0]; if(!file || !window.JSZip) return;
+    const zip = await JSZip.loadAsync(await file.arrayBuffer());
+    const entries = await Promise.all(Object.values(zip.files).map(async zf => {
+      if(zf.dir) return null;
+      const path = norm(zf.name); if(isIgnored(path)) return null;
+      const f = new File([], path);
+      f._virtualPath = path; 
+      f._virtualText = await zf.async(isText(path) ? 'string' : 'text');
+      return f;
+    }));
+    await loadFromFileList(entries.filter(Boolean), true);
+  });
+  $('#clearBtn')?.addEventListener('click', resetApp);
+  $('#search')?.addEventListener('input', debouncedApplyFilter);
+  $('#showOnlyMatches')?.addEventListener('click', (e) => {
+      e.currentTarget.classList.toggle('active');
+      applyFilterAndRender();
+  });
+  $('#samePkg')?.addEventListener('change', handleSamePkgChange);
+
+  $('#tierFilters').addEventListener('change', (e) => {
+      const tier = e.target.value;
+      if (e.target.checked) {
+          filter.tiers.add(tier);
+      } else {
+          filter.tiers.delete(tier);
+      }
+      if (selectedPath) renderConnections(selectedPath);
+  });
+
+  $('#kindFilters').addEventListener('change', (e) => {
+      const allKindCheckboxes = $$('#kindFilters input');
+      const currentlyChecked = new Set([...allKindCheckboxes].filter(el => el.checked).map(el => el.value));
+      
+      if (currentlyChecked.size === 0 || currentlyChecked.size === allKindCheckboxes.length) {
+          filter.kinds.clear();
+      } else {
+          filter.kinds = currentlyChecked;
+      }
+
+      if (selectedPath) renderConnections(selectedPath);
+  });
+
+  const toggleAll = (open) => {
+    if(!store.tree) return;
+    const stack=[store.tree]; while(stack.length){ const n=stack.pop(); if(n.children){ n.open=open; for(const c of n.children.values()) stack.push(c); }}
+    renderTree();
+  };
+  $('#expandAll')?.addEventListener('click', () => toggleAll(true));
+  $('#collapseAll')?.addEventListener('click', () => toggleAll(false));
+  
+  $('#toggleTheme').addEventListener('click', () => {
+    const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+    const newTheme = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', newTheme);
+    updateThemeIcons(newTheme);
+  });
+
+  $('#importBtn').addEventListener('click', () => {
+      $('#importDropdown').classList.toggle('open');
+  });
+  document.addEventListener('click', (e) => {
+      if (!$('#importDropdown').contains(e.target)) {
+          $('#importDropdown').classList.remove('open');
+      }
+  });
+
+  updateThemeIcons(document.documentElement.getAttribute('data-theme') || 'dark');
+  resetApp();
+</script>
+
+<!-- JSZip (ZIP import) -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+</body>
+</html>
