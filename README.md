@@ -1,7 +1,9 @@
 Codebase Linker
 An intelligent, client-side dependency visualizer for Android projects.
 
-➡️ Live Demo (Replace with your GitHub Pages link)
+[Live Demo](https://aboayman-oss.github.io/codebase-linker/)
+
+<img width="1902" height="896" alt="image" src="https://github.com/user-attachments/assets/179eb117-cdf5-4c41-99ee-221f074cd540" />
 
 Why?
 - Modern Android projects are complex. As a codebase grows, understanding the relationships between different files—activities, layouts, view models, and resources—becomes increasingly difficult. It's hard to answer critical questions like:
